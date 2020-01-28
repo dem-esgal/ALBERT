@@ -309,6 +309,87 @@ class Sst2Processor(DataProcessor):
           InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
     return examples
 
+class SentimentProcessor(DataProcessor):
+  """Processor for the Sentiment data set (e.g. Amazon)."""
+
+  def get_train_examples(self, data_dir):
+    """See base class."""
+    return self._create_examples(
+        self._read_tsv(os.path.join(data_dir, "Sentiment", "train.tsv")), "train")
+
+  def get_dev_examples(self, data_dir):
+    """See base class."""
+    return self._create_examples(
+        self._read_tsv(os.path.join(data_dir, "Sentiment", "dev.tsv")), "dev")
+
+  def get_test_examples(self, data_dir):
+    """See base class."""
+    return self._create_examples(
+        self._read_tsv(os.path.join(data_dir, "Sentiment", "test.tsv")), "test")
+
+  def get_labels(self):
+    """See base class."""
+    return ["0", "1"]
+
+  def _create_examples(self, lines, set_type):
+    """Creates examples for the training and dev sets."""
+    examples = []
+    for (i, line) in enumerate(lines):
+      if i == 0:
+        continue
+      if set_type != "test":
+        guid = "%s-%s" % (set_type, i)
+        text_a = self.process_text(line[0])
+        label = self.process_text(line[1])
+      else:
+        guid = self.process_text(line[0])
+        # guid = "%s-%s" % (set_type, line[0])
+        text_a = self.process_text(line[1])
+        label = "0"
+      examples.append(
+          InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+    return examples
+
+class Sst2Processor(DataProcessor):
+  """Processor for the SST-2 data set (GLUE version)."""
+
+  def get_train_examples(self, data_dir):
+    """See base class."""
+    return self._create_examples(
+        self._read_tsv(os.path.join(data_dir, "SST-2", "train.tsv")), "train")
+
+  def get_dev_examples(self, data_dir):
+    """See base class."""
+    return self._create_examples(
+        self._read_tsv(os.path.join(data_dir, "SST-2", "dev.tsv")), "dev")
+
+  def get_test_examples(self, data_dir):
+    """See base class."""
+    return self._create_examples(
+        self._read_tsv(os.path.join(data_dir, "SST-2", "test.tsv")), "test")
+
+  def get_labels(self):
+    """See base class."""
+    return ["0", "1"]
+
+  def _create_examples(self, lines, set_type):
+    """Creates examples for the training and dev sets."""
+    examples = []
+    for (i, line) in enumerate(lines):
+      if i == 0:
+        continue
+      if set_type != "test":
+        guid = "%s-%s" % (set_type, i)
+        text_a = self.process_text(line[0])
+        label = self.process_text(line[1])
+      else:
+        guid = self.process_text(line[0])
+        # guid = "%s-%s" % (set_type, line[0])
+        text_a = self.process_text(line[1])
+        label = "0"
+      examples.append(
+          InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+    return examples
 
 class StsbProcessor(DataProcessor):
   """Processor for the STS-B data set (GLUE version)."""

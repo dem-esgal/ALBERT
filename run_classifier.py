@@ -151,6 +151,7 @@ def main(_):
       "mismnli": classifier_utils.MisMnliProcessor,
       "mrpc": classifier_utils.MrpcProcessor,
       "rte": classifier_utils.RteProcessor,
+      "sentiment": classifier_utils.SentimentProcessor,
       "sst-2": classifier_utils.Sst2Processor,
       "sts-b": classifier_utils.StsbProcessor,
       "qqp": classifier_utils.QqpProcessor,
@@ -411,15 +412,15 @@ def main(_):
                 global_step, best_perf_global_step, best_perf))
     writer.close()
 
-    for ext in ["meta", "data-00000-of-00001", "index"]:
-      src_ckpt = "model.ckpt-{}.{}".format(best_perf_global_step, ext)
-      tgt_ckpt = "model.ckpt-best.{}".format(ext)
-      tf.logging.info("saving {} to {}".format(src_ckpt, tgt_ckpt))
-      tf.io.gfile.rename(
-          os.path.join(FLAGS.output_dir, src_ckpt),
-          os.path.join(FLAGS.output_dir, tgt_ckpt),
-          overwrite=True)
-
+    #for ext in ["meta", "data-00000-of-00001", "index"]:
+    #  src_ckpt = "model.ckpt-{}.{}".format(best_perf_global_step, ext)
+    #  tgt_ckpt = "model.ckpt-best.{}".format(ext)
+    #  tf.logging.info("saving {} to {}".format(src_ckpt, tgt_ckpt))
+    #  tf.io.gfile.rename(
+    #      os.path.join(FLAGS.output_dir, src_ckpt),
+    #      os.path.join(FLAGS.output_dir, tgt_ckpt),
+    #      overwrite=True)
+    
   if FLAGS.do_predict:
     predict_examples = processor.get_test_examples(FLAGS.data_dir)
     num_actual_predict_examples = len(predict_examples)
@@ -485,6 +486,8 @@ def main(_):
 
 
 if __name__ == "__main__":
+  import logging
+  logging.getLogger('tensorflow').disabled = True
   flags.mark_flag_as_required("data_dir")
   flags.mark_flag_as_required("task_name")
   flags.mark_flag_as_required("spm_model_file")
