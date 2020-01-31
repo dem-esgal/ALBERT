@@ -195,6 +195,9 @@ def main(_):
       use_spm=True if FLAGS.spm_model_file else False,
       do_lower_case=FLAGS.do_lower_case)
 
+  if isinstance(processor, classifier_utils.CombinedProcessor):
+      processor.set_datasets(FLAGS.datasets)
+
   label_list = processor.get_labels()
 
   tokenizer = fine_tuning_utils.create_vocab(

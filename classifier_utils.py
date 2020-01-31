@@ -379,6 +379,11 @@ class CombinedProcessor(DataProcessor):
     """See base class."""
     return ["0", "1"]
 
+  def set_datasets(self, datasets):
+    self.datasets = {}
+    for i, dataset in enumerate(datasets):
+      self.datasets[dataset] = i
+
   def _create_examples(self, lines: [any], set_type: str)->[InputExample]:
     """Creates examples for the training and dev sets."""
     examples = []
@@ -391,7 +396,7 @@ class CombinedProcessor(DataProcessor):
         guid = "%s-%s" % (set_type, i)
         text_a = self.process_text(line[0])
         label = self.process_text(line[1])
-        dataset_type = line[2]
+        dataset_type = self.datasets[line[2]]
       else:
         guid = self.process_text(line[0])
         # guid = "%s-%s" % (set_type, line[0])
@@ -805,6 +810,7 @@ def file_based_input_fn_builder(input_file, seq_length, is_training,
       "segment_ids": tf.FixedLenFeature([seq_length * multiple], tf.int64),
       "label_ids": tf.FixedLenFeature([], labeltype),
       "is_real_example": tf.FixedLenFeature([], tf.int64),
+      "dataset_type": tf.FixedLenFeature([], tf.int64),
   }
 
   def _decode_record(record, name_to_features):
@@ -1043,7 +1049,7 @@ def model_fn_builder(albert_config: modeling.AlbertConfig, num_labels: int, init
           return {"matthew_corr": (mcc, tf.group(tp_op, tn_op, fp_op, fn_op)),
                   "eval_accuracy": accuracy, "eval_loss": loss,}
       elif task_name == "combined":
-        def metric_fn(per_example_loss, label_ids, logits, is_real_example, dataset_types):
+        def metric_fn(per_example_loss, label_ids, logits, is_real_example, dataset_types) -> dict:
           predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
 
           accuracy = tf.metrics.accuracy(
@@ -1056,14 +1062,14 @@ def model_fn_builder(albert_config: modeling.AlbertConfig, num_labels: int, init
             "eval_loss": loss,
           }
 
-          types = np.unique(datasets).tolist()
-          for type in types:
-            group = tf.equal(dataset_types,type).astype('float32')
-            accuracy = tf.div(
-              tf.reduce_sum(
-                tf.multiply(tf.cast(tf.equal(predictions, label_ids), tf.float32), group)), tf.reduce_sum(group))
-            result["accuracy"+type] = accuracy
+          for type_id in range(0,len(datasets)):
+            group = tf.cast(tf.equal(dataset_types, type_id), tf.float32)
+            accuracy = tf.metrics.accuracy(
+              labels=label_ids, predictions=predictions,
+              weights=group)
+            result["accuracy"+datasets[type_id]] = accuracy
 
+          return result
 
       eval_metrics = (metric_fn,
                       [per_example_loss, label_ids, logits, is_real_example, dataset_types])
