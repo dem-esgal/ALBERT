@@ -70,7 +70,7 @@ def create_albert(albert_config, is_training, input_ids, input_mask,
                                       use_one_hot_embeddings)
 
 
-def create_vocab(vocab_file, do_lower_case, spm_model_file, hub_module):
+def create_vocab(vocab_file: str, do_lower_case: bool, spm_model_file: str, hub_module: str) -> tokenization.FullTokenizer:
   """Creates a vocab, either from vocab file or from a TF-Hub module."""
   if hub_module:
     return tokenization.FullTokenizer.from_hub_module(

@@ -21,6 +21,7 @@ from __future__ import print_function
 import collections
 import csv
 import os
+import numpy as np
 import fine_tuning_utils
 import modeling
 import optimization
@@ -34,7 +35,7 @@ from tensorflow.contrib import tpu as contrib_tpu
 class InputExample(object):
   """A single training/test example for simple sequence classification."""
 
-  def __init__(self, guid, text_a, text_b=None, label=None):
+  def __init__(self, guid, text_a, text_b=None, label=None, dataset_type=None):
     """Constructs a InputExample.
 
     Args:
@@ -45,11 +46,13 @@ class InputExample(object):
         Only must be specified for sequence pair tasks.
       label: (Optional) string. The label of the example. This should be
         specified for train and dev examples, but not for test examples.
+      dataset_type: (Optional) string. The type of dataset in combined dataset.
     """
     self.guid = guid
     self.text_a = text_a
     self.text_b = text_b
     self.label = label
+    self.dataset_type = dataset_type
 
 
 class PaddingInputExample(object):
@@ -75,7 +78,8 @@ class InputFeatures(object):
                label_id,
                guid=None,
                example_id=None,
-               is_real_example=True):
+               is_real_example=True,
+               dataset_type=None):
     self.input_ids = input_ids
     self.input_mask = input_mask
     self.segment_ids = segment_ids
@@ -83,6 +87,7 @@ class InputFeatures(object):
     self.example_id = example_id
     self.guid = guid
     self.is_real_example = is_real_example
+    self.dataset_type = -1 if dataset_type is None else dataset_type
 
 
 class DataProcessor(object):
@@ -309,29 +314,30 @@ class Sst2Processor(DataProcessor):
           InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
     return examples
 
+
 class SentimentProcessor(DataProcessor):
   """Processor for the Sentiment data set (e.g. Amazon)."""
 
-  def get_train_examples(self, data_dir):
+  def get_train_examples(self, data_dir: str)->[InputExample]:
     """See base class."""
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "Sentiment", "train.tsv")), "train")
 
-  def get_dev_examples(self, data_dir):
+  def get_dev_examples(self, data_dir: str)->[InputExample]:
     """See base class."""
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "Sentiment", "dev.tsv")), "dev")
 
-  def get_test_examples(self, data_dir):
+  def get_test_examples(self, data_dir: str)->[InputExample]:
     """See base class."""
     return self._create_examples(
         self._read_tsv(os.path.join(data_dir, "Sentiment", "test.tsv")), "test")
 
-  def get_labels(self):
+  def get_labels(self)->[str]:
     """See base class."""
     return ["0", "1"]
 
-  def _create_examples(self, lines, set_type):
+  def _create_examples(self, lines: [any], set_type: str)->[InputExample]:
     """Creates examples for the training and dev sets."""
     examples = []
     for (i, line) in enumerate(lines):
@@ -350,46 +356,51 @@ class SentimentProcessor(DataProcessor):
           InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
     return examples
 
-class Sst2Processor(DataProcessor):
-  """Processor for the SST-2 data set (GLUE version)."""
 
-  def get_train_examples(self, data_dir):
+class CombinedProcessor(DataProcessor):
+  """Processor for the Sentiment data set (e.g. Amazon)."""
+
+  def get_train_examples(self, data_dir: str)->[InputExample]:
     """See base class."""
     return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "SST-2", "train.tsv")), "train")
+        self._read_tsv(os.path.join(data_dir, "Combined", "train.tsv")), "train")
 
-  def get_dev_examples(self, data_dir):
+  def get_dev_examples(self, data_dir: str)->[InputExample]:
     """See base class."""
     return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "SST-2", "dev.tsv")), "dev")
+        self._read_tsv(os.path.join(data_dir, "Combined", "dev.tsv")), "dev")
 
-  def get_test_examples(self, data_dir):
+  def get_test_examples(self, data_dir: str)->[InputExample]:
     """See base class."""
     return self._create_examples(
-        self._read_tsv(os.path.join(data_dir, "SST-2", "test.tsv")), "test")
+        self._read_tsv(os.path.join(data_dir, "Combined", "test.tsv")), "test")
 
-  def get_labels(self):
+  def get_labels(self)->[str]:
     """See base class."""
     return ["0", "1"]
 
-  def _create_examples(self, lines, set_type):
+  def _create_examples(self, lines: [any], set_type: str)->[InputExample]:
     """Creates examples for the training and dev sets."""
     examples = []
     for (i, line) in enumerate(lines):
       if i == 0:
         continue
+
+      dataset_type = None
       if set_type != "test":
         guid = "%s-%s" % (set_type, i)
         text_a = self.process_text(line[0])
         label = self.process_text(line[1])
+        dataset_type = line[2]
       else:
         guid = self.process_text(line[0])
         # guid = "%s-%s" % (set_type, line[0])
         text_a = self.process_text(line[1])
         label = "0"
       examples.append(
-          InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+          InputExample(guid=guid, text_a=text_a, text_b=None, label=label, dataset_type=dataset_type))
     return examples
+
 
 class StsbProcessor(DataProcessor):
   """Processor for the STS-B data set (GLUE version)."""
@@ -635,8 +646,8 @@ class AXProcessor(DataProcessor):
     return examples
 
 
-def convert_single_example(ex_index, example, label_list, max_seq_length,
-                           tokenizer, task_name):
+def convert_single_example(ex_index: int, example: InputExample, label_list: [str], max_seq_length: int,
+                           tokenizer: tokenization.FullTokenizer, task_name: str) -> InputFeatures:
   """Converts a single `InputExample` into a single `InputFeatures`."""
 
   if isinstance(example, PaddingInputExample):
@@ -725,25 +736,28 @@ def convert_single_example(ex_index, example, label_list, max_seq_length,
 
   if ex_index < 5:
     tf.logging.info("*** Example ***")
-    tf.logging.info("guid: %s" % (example.guid))
+    tf.logging.info("guid: %s" % example.guid)
     tf.logging.info("tokens: %s" % " ".join(
         [tokenization.printable_text(x) for x in tokens]))
     tf.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
     tf.logging.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
     tf.logging.info("segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
     tf.logging.info("label: %s (id = %d)" % (example.label, label_id))
+    tf.logging.info("dataset_type: %s" % example.dataset_type)
 
   feature = InputFeatures(
       input_ids=input_ids,
       input_mask=input_mask,
       segment_ids=segment_ids,
       label_id=label_id,
-      is_real_example=True)
+      is_real_example=True,
+      dataset_type = example.dataset_type)
   return feature
 
 
 def file_based_convert_examples_to_features(
-    examples, label_list, max_seq_length, tokenizer, output_file, task_name):
+    examples: [InputExample], label_list: [str], max_seq_length: int,
+        tokenizer: tokenization.FullTokenizer, output_file: str, task_name: str):
   """Convert a set of `InputExample`s to a TFRecord file."""
 
   writer = tf.python_io.TFRecordWriter(output_file)
@@ -771,6 +785,8 @@ def file_based_convert_examples_to_features(
         if task_name == "sts-b" else create_int_feature([feature.label_id])
     features["is_real_example"] = create_int_feature(
         [int(feature.is_real_example)])
+    features["dataset_type"] = create_int_feature(
+      [int(feature.dataset_type)])
 
     tf_example = tf.train.Example(features=tf.train.Features(feature=features))
     writer.write(tf_example.SerializeToString())
@@ -893,10 +909,10 @@ def create_model(albert_config, is_training, input_ids, input_mask, segment_ids,
     return (loss, per_example_loss, probabilities, logits, predictions)
 
 
-def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
-                     num_train_steps, num_warmup_steps, use_tpu,
-                     use_one_hot_embeddings, task_name, hub_module=None,
-                     optimizer="adamw"):
+def model_fn_builder(albert_config: modeling.AlbertConfig, num_labels: int, init_checkpoint: str, learning_rate: float,
+                     num_train_steps: int, num_warmup_steps: int, use_tpu: bool,
+                     use_one_hot_embeddings: bool, task_name: str, hub_module: str=None,
+                     optimizer:str="adamw", datasets=None):
   """Returns `model_fn` closure for TPUEstimator."""
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
@@ -910,6 +926,8 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
     input_mask = features["input_mask"]
     segment_ids = features["segment_ids"]
     label_ids = features["label_ids"]
+    dataset_types = features["dataset_type"]
+
     is_real_example = None
     if "is_real_example" in features:
       is_real_example = tf.cast(features["is_real_example"], dtype=tf.float32)
@@ -960,7 +978,7 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
           train_op=train_op,
           scaffold_fn=scaffold_fn)
     elif mode == tf.estimator.ModeKeys.EVAL:
-      if task_name not in ["sts-b", "cola"]:
+      if task_name not in ["sts-b", "cola", "combined"]:
         def metric_fn(per_example_loss, label_ids, logits, is_real_example):
           predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
           accuracy = tf.metrics.accuracy(
@@ -1024,9 +1042,31 @@ def model_fn_builder(albert_config, num_labels, init_checkpoint, learning_rate,
 
           return {"matthew_corr": (mcc, tf.group(tp_op, tn_op, fp_op, fn_op)),
                   "eval_accuracy": accuracy, "eval_loss": loss,}
+      elif task_name == "combined":
+        def metric_fn(per_example_loss, label_ids, logits, is_real_example, dataset_types):
+          predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+
+          accuracy = tf.metrics.accuracy(
+            labels=label_ids, predictions=predictions,
+            weights=is_real_example)
+          loss = tf.metrics.mean(
+            values=per_example_loss, weights=is_real_example)
+          result = {
+            "eval_accuracy": accuracy,
+            "eval_loss": loss,
+          }
+
+          types = np.unique(datasets).tolist()
+          for type in types:
+            group = tf.equal(dataset_types,type).astype('float32')
+            accuracy = tf.div(
+              tf.reduce_sum(
+                tf.multiply(tf.cast(tf.equal(predictions, label_ids), tf.float32), group)), tf.reduce_sum(group))
+            result["accuracy"+type] = accuracy
+
 
       eval_metrics = (metric_fn,
-                      [per_example_loss, label_ids, logits, is_real_example])
+                      [per_example_loss, label_ids, logits, is_real_example, dataset_types])
       output_spec = contrib_tpu.TPUEstimatorSpec(
           mode=mode,
           loss=total_loss,

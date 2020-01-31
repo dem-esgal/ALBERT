@@ -117,6 +117,8 @@ flags.DEFINE_bool("use_tpu", False, "Whether to use TPU or GPU/CPU.")
 
 flags.DEFINE_string("optimizer", "adamw", "Optimizer to use")
 
+flags.DEFINE_multi_string("datasets", [], "Datasets types")
+
 tf.flags.DEFINE_string(
     "tpu_name", None,
     "The Cloud TPU to use for training. This should be either the name "
@@ -152,6 +154,7 @@ def main(_):
       "mrpc": classifier_utils.MrpcProcessor,
       "rte": classifier_utils.RteProcessor,
       "sentiment": classifier_utils.SentimentProcessor,
+      "combined": classifier_utils.CombinedProcessor,
       "sst-2": classifier_utils.Sst2Processor,
       "sts-b": classifier_utils.StsbProcessor,
       "qqp": classifier_utils.QqpProcessor,
@@ -225,6 +228,7 @@ def main(_):
   train_examples = None
   if FLAGS.do_train:
     train_examples = processor.get_train_examples(FLAGS.data_dir)
+
   model_fn = classifier_utils.model_fn_builder(
       albert_config=albert_config,
       num_labels=len(label_list),
@@ -236,7 +240,8 @@ def main(_):
       use_one_hot_embeddings=FLAGS.use_tpu,
       task_name=task_name,
       hub_module=FLAGS.albert_hub_module_handle,
-      optimizer=FLAGS.optimizer)
+      optimizer=FLAGS.optimizer,
+      datasets=FLAGS.datasets)
 
   # If TPU is not available, this will fall back to normal Estimator on CPU
   # or GPU.
@@ -420,7 +425,7 @@ def main(_):
     #      os.path.join(FLAGS.output_dir, src_ckpt),
     #      os.path.join(FLAGS.output_dir, tgt_ckpt),
     #      overwrite=True)
-    
+
   if FLAGS.do_predict:
     predict_examples = processor.get_test_examples(FLAGS.data_dir)
     num_actual_predict_examples = len(predict_examples)
